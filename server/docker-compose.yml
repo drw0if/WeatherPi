@@ -1,0 +1,11 @@
+services:
+
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:8090:80"
+    volumes:
+      - db:/app/db
+
+volumes:
+  db:
