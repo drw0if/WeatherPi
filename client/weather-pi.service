@@ -1,0 +1,18 @@
+# /usr/lib/systemd/system/weather-pi.service
+# enable with sudo systemctl enable weather-pi
+# start with  sudo systemctl start weather-pi
+
+[Unit]
+Description=Service for weather-pi to start on boot
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/pi/venv/bin/python3 client.py
+WorkingDirectory=/home/pi
+Restart=always
+KillSignal=SIGINT
+User=pi
+
+[Install]
+WantedBy=multi-user.target
