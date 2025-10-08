@@ -1,7 +1,16 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from db import DB
+from flask_cors import CORS
+
 
 app = Flask(__name__)
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
+
 
 @app.route('/api/v1/data', methods=['POST'])
 def add_record():

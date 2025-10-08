@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Weather Station Data</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      border-radius: 1rem;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 320px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .data-row:last-child {
+      border-bottom: none;
+    }
+    .battery {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .battery-indicator {
+      width: 16px;
+      height: 10px;
+      border: 2px solid #1e293b;
+      border-radius: 2px;
+      position: relative;
+    }
+    .battery-indicator::after {
+      content: "";
+      position: absolute;
+      right: -5px;
+      top: 2px;
+      width: 2px;
+      height: 4px;
+      background: #1e293b;
+      border-radius: 1px;
+    }
+    .battery-level {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: #10b981;
+    }
+    .battery.low .battery-level {
+      background: #ef4444;
+      width: 40%;
+    }
+    .battery.ok .battery-level {
+      width: 90%;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Weather Station</h2>
+    <div class="data-row"><span>Temperature:</span> <span id="temperature"></span></div>
+    <div class="data-row"><span>Humidity:</span> <span id="humidity"></span></div>
+    <div class="data-row"><span>Rain:</span> <span id="rain"></span></div>
+    <div class="data-row"><span>Wind Speed:</span> <span id="wind_speed"></span></div>
+    <div class="data-row"><span>Wind Gust:</span> <span id="wind_gust"></span></div>
+    <div class="data-row"><span>Wind Direction:</span> <span id="wind_dir"></span></div>
+    <div class="data-row"><span>Timestamp (GMT+2):</span> <span id="timestamp"></span></div>
+    <div class="data-row battery" id="battery">
+      <span>Battery:</span>
+      <div class="battery-indicator">
+        <div class="battery-level"></div>
+      </div>
+      <span id="battery-status"></span>
+    </div>
+  </div>
+
+  <script>
+    const windDirection = (deg) => {
+      const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+      return dirs[Math.round(deg / 22.5) % 16];
+    }
+
+    const convertTimestamp = (ts) => {
+      const date = new Date(ts * 1000);
+      const gmt2 = new Date(date.getTime() + 2 * 3600 * 1000);
+      return gmt2.toISOString().replace("T", " ").substring(0, 19);
+    }
+
+    const render = async () => {
+        const data = await (await fetch("/api/v1/data/1")).json();
+
+        document.getElementById("temperature").textContent = `${data.temperature.toFixed(1)} °C`;
+        document.getElementById("humidity").textContent = `${data.humidity}%`;
+        document.getElementById("rain").textContent = `${data.rain} mm`;
+        document.getElementById("wind_speed").textContent = `${data.wind_speed} m/s`;
+        document.getElementById("wind_gust").textContent = `${data.wind_gust} m/s`;
+        document.getElementById("wind_dir").textContent = `${windDirection(data.wind_dir)} (${data.wind_dir}°)`;
+        document.getElementById("timestamp").textContent = convertTimestamp(data.timestamp);
+
+        const batteryEl = document.getElementById("battery");
+        const batteryStatus = document.getElementById("battery-status");
+        if (data.battery === 1) {
+        batteryEl.classList.add("ok");
+        batteryStatus.textContent = "OK";
+        } else {
+        batteryEl.classList.add("low");
+        batteryStatus.textContent = "Low";
+        }
+    }
+
+    render();
+    setInterval(render, 60 * 1000); // One per minute
+
+</script>
+
+</body>
+</html>
