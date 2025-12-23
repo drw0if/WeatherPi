@@ -8,15 +8,50 @@ import sys
 import json
 import time
 from datetime import datetime
+import os
+
 import requests
+import logging
+from dotenv import load_dotenv
 
-RTL_CMD : str = "rtl_433 -s 1M -R 172 -f 868M -F json"
-UPLOAD_URL : str = "" #
-API_KEY : str = "" # 
+load_dotenv()
 
-assert RTL_CMD != "", "Missing rtl_433 command"
-assert UPLOAD_URL != "", "Missing upload URL"
-assert API_KEY != "", "Missing API key"
+RTL_CMD: str | None =       os.getenv("RTL_CMD")
+UPLOAD_URL: str | None =    os.getenv("UPLOAD_URL")
+API_KEY: str | None =       os.getenv("API_KEY")
+
+
+def _require(value: str | None, name: str) -> str:
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+RTL_CMD = _require(RTL_CMD, "RTL_CMD")
+UPLOAD_URL = _require(UPLOAD_URL, "UPLOAD_URL")
+API_KEY = _require(API_KEY, "API_KEY")
+
+
+def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    if logger.handlers:
+        return logger
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+
+    formatter = logging.Formatter(
+        '%(asctime)s %(levelname)s %(name)s: %(message)s',
+        datefmt='%Y-%m-%dT%H:%M:%S'
+    )
+    handler.setFormatter(formatter)
+
+    logger.addHandler(handler)
+    logger.propagate = False
+
+    return logger
 
 
 DATA : Dict[str, int|float] = {}
@@ -24,15 +59,16 @@ DATA : Dict[str, int|float] = {}
 
 class Uploader(Thread):
 
-    def __init__(self):
+    def __init__(self, log):
         Thread.__init__(self)
         self.stop_event = Event()
+        self.log = log
 
 
     def run(self):
         global DATA
 
-        print("Starting Uploader thread...")
+        self.log.info("Starting Uploader thread...")
 
         while len(DATA) != len(Collector.REMOTE2LOCAL_FIELD) and not self.stop_event.is_set():
             self.stop_event.wait(timeout=1)
@@ -40,18 +76,20 @@ class Uploader(Thread):
 
         while not self.stop_event.is_set():
             try:
-                requests.post(UPLOAD_URL,
+                self.log.debug(f"Uploading: {json.dumps(DATA)}")
+                r = requests.post(UPLOAD_URL,
                     json = DATA,
                     headers = {
                         "X-Api-Key": API_KEY
                     }
                 )
+                self.log.info(f"Result: {r.status_code} - {r.text}")
             except BaseException as e:
-                print(e.with_traceback())
+                self.log.error(e.with_traceback())
 
             self.stop_event.wait(timeout=60)
 
-        print("Stopping Uploader thread...")
+        self.log.info("Stopping Uploader thread...")
 
 
     def stop(self):
@@ -86,8 +124,9 @@ class Collector(Thread):
                 DATA[v] = data[k]
 
 
-    def __init__(self, cmd):
+    def __init__(self, log, cmd):
         Thread.__init__(self)
+        self.log = log
         self.cmd : List[str] = cmd.split(" ")
         self.process : subprocess.Popen | None = None
 
@@ -101,7 +140,7 @@ class Collector(Thread):
     def run(self):
         global DATA
 
-        print("Starting Collector thread...")
+        self.log.info("Starting Collector thread...")
 
         self.process : subprocess.Popen = subprocess.Popen(
             self.cmd,
@@ -123,18 +162,21 @@ class Collector(Thread):
 
                 Collector.update_data(data)
 
-                print(f"Got: {json.dumps(DATA)}")
+                self.log.debug(f"Got: {json.dumps(DATA)}")
             except json.JSONDecodeError:
                 pass
             except Exception as e:
-                print(f"Got exception in Collector thread: {e}")
+                self.log.error(f"Got exception in Collector thread: {e}")
 
-        print("Stopping Collector thread...")
+        self.log.info("Stopping Collector thread...")
 
 
 if __name__ == "__main__":
-    UPLOAD_THREAD = Uploader()
-    COLLECTOR_THREAD = Collector(RTL_CMD)
+    log = setup_logger("weather-pi")
+    log.info("Service started")
+
+    UPLOAD_THREAD = Uploader(log)
+    COLLECTOR_THREAD = Collector(log, RTL_CMD)
 
     try:
         COLLECTOR_THREAD.start()
@@ -146,10 +188,10 @@ if __name__ == "__main__":
     except KeyboardInterrupt as e:
         pass
     finally:
-        print("Cleaning up...")
+        log.info("Cleaning up...")
 
         COLLECTOR_THREAD.stop()
         UPLOAD_THREAD.stop()
-        print("Quitting...")
+        log.info("Quitting...")
 
         sys.exit(0)
