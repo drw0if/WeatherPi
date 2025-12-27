@@ -62,7 +62,28 @@ class DB:
         """, (station_id,))
 
         record = res.fetchone()
-        return dict(record) if record else record
+        if record is None:
+            return None
+
+        record = dict(record)
+        timestamp = record["timestamp"]
+
+        # fetch first record of the day
+        res = cursor.execute("""
+            SELECT *
+            FROM record r
+            WHERE r.station_id = ?
+                AND r.timestamp >= ?
+                AND date(r.timestamp, 'unixepoch') = date(?, 'unixepoch')
+            ORDER BY r.timestamp ASC
+            LIMIT 1;
+        """, (station_id, (timestamp - 60*60*25), timestamp))
+
+        first_record_of_same_day = res.fetchone()
+
+        record["rain"] -= first_record_of_same_day["rain"] if first_record_of_same_day else record["rain"]
+
+        return record
 
 
 if __name__ == "__main__":
