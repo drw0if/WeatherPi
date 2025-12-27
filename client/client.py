@@ -85,7 +85,8 @@ class Uploader(Thread):
                 )
                 self.log.info(f"Result: {r.status_code} - {r.text}")
             except BaseException as e:
-                self.log.error(e.with_traceback())
+                tb = sys.exception().__traceback__
+                self.log.error(e.with_traceback(tb))
 
             self.stop_event.wait(timeout=60)
 
@@ -165,8 +166,9 @@ class Collector(Thread):
                 self.log.debug(f"Got: {json.dumps(DATA)}")
             except json.JSONDecodeError:
                 pass
-            except Exception as e:
-                self.log.error(f"Got exception in Collector thread: {e}")
+            except BaseException as e:
+                tb = sys.exception().__traceback__
+                self.log.error(e.with_traceback(tb))
 
         self.log.info("Stopping Collector thread...")
 
@@ -183,6 +185,14 @@ if __name__ == "__main__":
         UPLOAD_THREAD.start()
 
         while True:
+            if not COLLECTOR_THREAD.is_alive():
+                log.error("Collector thread quit")
+                break
+
+            if not UPLOAD_THREAD.is_alive():
+                log.error("Upoad thread quit")
+                break
+
             time.sleep(1)
 
     except KeyboardInterrupt as e:
@@ -190,8 +200,12 @@ if __name__ == "__main__":
     finally:
         log.info("Cleaning up...")
 
-        COLLECTOR_THREAD.stop()
-        UPLOAD_THREAD.stop()
+        if COLLECTOR_THREAD.is_alive():
+            COLLECTOR_THREAD.stop()
+
+        if UPLOAD_THREAD.is_alive():
+            UPLOAD_THREAD.stop()
+
         log.info("Quitting...")
 
         sys.exit(0)
