@@ -175,9 +175,9 @@
 
         document.getElementById("temperature").textContent = `${data.temperature.toFixed(1)} °C`;
         document.getElementById("humidity").textContent = `${data.humidity}%`;
-        document.getElementById("rain").textContent = `${data.rain} mm`;
-        document.getElementById("wind_speed").textContent = `${data.wind_speed} m/s`;
-        document.getElementById("wind_gust").textContent = `${data.wind_gust} m/s`;
+        document.getElementById("rain").textContent = `${data.rain.toFixed(2)} mm`;
+        document.getElementById("wind_speed").textContent = `${data.wind_speed.toFixed(2)} m/s`;
+        document.getElementById("wind_gust").textContent = `${data.wind_gust.toFixed(2)} m/s`;
         document.getElementById("wind_dir").textContent = `${windDirection(data.wind_dir)} (${data.wind_dir}°)`;
         document.getElementById("timestamp").textContent = convertTimestamp(data.timestamp);
 
